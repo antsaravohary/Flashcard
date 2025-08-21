@@ -173,17 +173,14 @@ def update_stats(is_correct):
     stats = cursor.fetchone()
     if len(stats) > 0:
         if is_correct:
-            cursor.execute('''
-                UPDATE stats
-                SET bonnes_reponses = bonnes_reponses + 1
-                WHERE id = ?
-            ''', (stats[0],))
+            bonnes_reponses += 1
         else:
-            cursor.execute('''
-                UPDATE stats
-                SET mauvaises_reponses = mauvaises_reponses + 1
-                WHERE id = ?
-            ''', (stats[0],))
+            mauvaises_reponses += 1
+        cursor.execute('''
+            UPDATE stats
+            SET bonnes_reponses = ? , mauvaises_reponses = ?
+            WHERE id = ?
+        ''', (bonnes_reponses, mauvaises_reponses, stats[0]))
         conn.commit()
         cursor.close()
     else:
@@ -202,14 +199,21 @@ def update_card_probability(card_id, is_correct):
         SELECT probabilite FROM cards WHERE id = ?
     ''', (card_id,))
     card = cursor.fetchone()
+    if len(card) > 0:
+        if is_correct:
+            nouvelle_probabilite = card[3] * 0.9
+        else:
+            nouvelle_probabilite = card[3] * 1.1
 
-    cursor.execute('''
-        UPDATE cards
-        SET probabilite = probabilite + ?
-        WHERE id = ?
-    ''', (1 if is_correct else -1, card_id))
-    conn.commit()
-    cursor.close()
+        nouvelle_probabilite = max(0.1, min(nouvelle_probabilite, 1.0))  # Clamp between 0.1 and 1.0
+
+        cursor.execute('''
+                UPDATE cards
+                SET probabilite = ?
+                WHERE id = ?
+            ''', (nouvelle_probabilite, card_id))
+        conn.commit()
+        cursor.close()
 
 def get_stats():
     conn = sqlite3.connect("flashcard.db")
